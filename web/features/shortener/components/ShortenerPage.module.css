@@ -1,0 +1,59 @@
+.main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 64px 16px;
+}
+
+.sub {
+  color: var(--muted);
+  margin: 4px 0 24px;
+}
+
+.form {
+  display: flex;
+  gap: 8px;
+}
+
+.form input {
+  flex: 1;
+  min-width: 0;
+}
+
+.error {
+  color: var(--danger);
+  margin-top: 12px;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.short {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.original {
+  grid-column: 1;
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.item button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
