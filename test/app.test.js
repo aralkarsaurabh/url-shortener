@@ -4,17 +4,24 @@ import { createApp } from '../src/app.js';
 
 function startApp() {
   const store = new Map();
-  const repository = {
+  const clicks = new Map();
+  const service = {
     async createUrl(url) {
       const code = String(store.size + 1);
       store.set(code, url);
       return code;
     },
-    async findUrlByCode(code) {
-      return store.get(code) ?? null;
+    async visit(code) {
+      if (!store.has(code)) return null;
+      clicks.set(code, (clicks.get(code) ?? 0) + 1);
+      return store.get(code);
+    },
+    async getStats(code) {
+      if (!store.has(code)) return null;
+      return { code, originalUrl: store.get(code), clickCount: clicks.get(code) ?? 0 };
     },
   };
-  const server = createApp({ repository, baseUrl: 'http://short.test' }).listen(0);
+  const server = createApp({ service, baseUrl: 'http://short.test' }).listen(0);
   return { server, base: `http://localhost:${server.address().port}` };
 }
 
@@ -54,4 +61,18 @@ test('returns 404 for an unknown code', async (t) => {
 
   const res = await fetch(`${base}/zzzz`, { redirect: 'manual' });
   assert.equal(res.status, 404);
+});
+
+test('stats show the click count', async (t) => {
+  const { server, base } = startApp();
+  t.after(() => server.close());
+
+  const { code } = await (await post(base, { url: 'https://example.com' })).json();
+  await fetch(`${base}/${code}`, { redirect: 'manual' });
+  await fetch(`${base}/${code}`, { redirect: 'manual' });
+
+  const stats = await (await fetch(`${base}/stats/${code}`)).json();
+  assert.equal(stats.clickCount, 2);
+  assert.equal(stats.originalUrl, 'https://example.com');
+  assert.equal((await fetch(`${base}/stats/nope`)).status, 404);
 });

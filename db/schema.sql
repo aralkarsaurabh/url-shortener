@@ -4,3 +4,6 @@ CREATE TABLE IF NOT EXISTS urls (
   original_url TEXT NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Phase 2: click counting. Safe to run again, so it can also be applied to an existing database.
+ALTER TABLE urls ADD COLUMN IF NOT EXISTS click_count BIGINT NOT NULL DEFAULT 0;
