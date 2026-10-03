@@ -1,6 +1,6 @@
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function createUrlService({ repository, cache, busyRetries = 10, busyDelayMs = 25 }) {
+export function createUrlService({ repository, cache, clicks, busyRetries = 10, busyDelayMs = 25 }) {
   // Cache-aside read with leases. Returns the URL, or null if the code does not exist.
   async function resolve(code) {
     try {
@@ -21,6 +21,17 @@ export function createUrlService({ repository, cache, busyRetries = 10, busyDela
     return repository.findUrlByCode(code);
   }
 
+  // Clicks go to the counter (Redis) and are saved to the database in batches.
+  // If Redis is down, write straight to the database so the click is not lost.
+  async function recordClick(code) {
+    try {
+      await clicks.record(code);
+    } catch (err) {
+      console.error('click counter problem, writing the click to the database:', err.message);
+      await repository.incrementClicks(code);
+    }
+  }
+
   return {
     async createUrl(originalUrl) {
       const code = await repository.createUrl(originalUrl);
@@ -32,7 +43,7 @@ export function createUrlService({ repository, cache, busyRetries = 10, busyDela
     // Finds where the code points and counts the click. Returns null for an unknown code.
     async visit(code) {
       const url = await resolve(code);
-      if (url) await repository.incrementClicks(code);
+      if (url) await recordClick(code);
       return url;
     },
 

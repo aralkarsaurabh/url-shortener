@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node --env-file=.env src/server.js",
     "dev": "node --watch --env-file=.env src/server.js",
-    "test": "node --test"
+    "test": "node --env-file-if-exists=.env --test"
   },
   "dependencies": {
     "express": "^4.21.0",

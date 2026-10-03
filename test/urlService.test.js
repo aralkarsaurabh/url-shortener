@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createUrlService } from '../src/urlService.js';
 
-function setup({ cacheResults, dbUrl = 'https://example.com' }) {
-  const calls = { dbReads: 0, sets: [], removed: [], clicks: 0 };
+function setup({ cacheResults, dbUrl = 'https://example.com', counterError = null }) {
+  const calls = { dbReads: 0, sets: [], removed: [], clicks: 0, counted: [] };
   const queue = [...cacheResults];
   const repository = {
     async createUrl() {
@@ -30,15 +30,22 @@ function setup({ cacheResults, dbUrl = 'https://example.com' }) {
       calls.removed.push(code);
     },
   };
-  const service = createUrlService({ repository, cache, busyRetries: 3, busyDelayMs: 1 });
+  const clicks = {
+    async record(code) {
+      if (counterError) throw counterError;
+      calls.counted.push(code);
+    },
+  };
+  const service = createUrlService({ repository, cache, clicks, busyRetries: 3, busyDelayMs: 1 });
   return { service, calls };
 }
 
-test('cache hit skips the database but still counts the click', async () => {
+test('cache hit skips the database but still queues the click', async () => {
   const { service, calls } = setup({ cacheResults: [{ status: 'hit', url: 'https://cached.test' }] });
   assert.equal(await service.visit('a'), 'https://cached.test');
   assert.equal(calls.dbReads, 0);
-  assert.equal(calls.clicks, 1);
+  assert.deepEqual(calls.counted, ['a']);
+  assert.equal(calls.clicks, 0); // queued in the counter, not written to the database
 });
 
 test('miss reads the database and fills the cache using the same lease', async () => {
@@ -51,6 +58,7 @@ test('a code missing from the database is cached as not found and gets no click'
   const { service, calls } = setup({ cacheResults: [{ status: 'miss', lease: 'L1' }], dbUrl: null });
   assert.equal(await service.visit('a'), null);
   assert.deepEqual(calls.sets, [{ code: 'a', lease: 'L1', url: null }]);
+  assert.deepEqual(calls.counted, []);
   assert.equal(calls.clicks, 0);
 });
 
@@ -85,4 +93,13 @@ test('creating a url clears any cached entry for the new code', async () => {
   const { service, calls } = setup({ cacheResults: [] });
   assert.equal(await service.createUrl('https://example.com'), '7');
   assert.deepEqual(calls.removed, ['7']);
+});
+
+test('if the click counter fails, the click is written to the database instead', async () => {
+  const { service, calls } = setup({
+    cacheResults: [{ status: 'hit', url: 'https://cached.test' }],
+    counterError: new Error('redis down'),
+  });
+  assert.equal(await service.visit('a'), 'https://cached.test');
+  assert.equal(calls.clicks, 1);
 });
