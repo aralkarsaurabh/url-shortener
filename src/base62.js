@@ -1,7 +1,5 @@
 const ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
-export const BASE62_PATTERN = /^[0-9A-Za-z]+$/;
-
 export function encodeBase62(num) {
   let n = BigInt(num);
   if (n < 0n) throw new RangeError('Cannot encode a negative number');

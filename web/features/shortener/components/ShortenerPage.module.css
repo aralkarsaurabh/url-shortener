@@ -11,12 +11,27 @@
 
 .form {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .form input {
-  flex: 1;
+  flex: 1 1 100%;
   min-width: 0;
+}
+
+.form input.alias {
+  flex: 1 1 160px;
+}
+
+.form select {
+  flex: 1 1 160px;
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
 }
 
 .error {

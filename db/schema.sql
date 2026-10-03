@@ -13,3 +13,6 @@ CREATE TABLE IF NOT EXISTS click_batches (
   batch_id   TEXT PRIMARY KEY,
   applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Phase 4: optional link expiry. NULL means the link never expires.
+ALTER TABLE urls ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;

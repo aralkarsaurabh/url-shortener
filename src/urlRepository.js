@@ -1,23 +1,40 @@
 import { pool } from './db.js';
-import { encodeBase62 } from './base62.js';
+import { randomCode } from './codeGenerator.js';
+import { AliasTakenError } from './errors.js';
 
-// Take the next id from the sequence first, so the code can be built from it
-// and the row is written with a single insert.
-export async function createUrl(originalUrl) {
-  const { rows } = await pool.query("SELECT nextval(pg_get_serial_sequence('urls', 'id')) AS id");
-  const id = rows[0].id;
-  const code = encodeBase62(id);
-  await pool.query('INSERT INTO urls (id, code, original_url) VALUES ($1, $2, $3)', [
-    id,
-    code,
-    originalUrl,
-  ]);
-  return code;
+const MAX_CODE_ATTEMPTS = 5;
+
+// The unique constraint on `code` decides who gets a code, so this is safe with many app
+// instances at once. ON CONFLICT DO NOTHING returns no row when the code is already taken.
+async function insertWithCode(code, originalUrl, expiresAt) {
+  const { rowCount } = await pool.query(
+    `INSERT INTO urls (code, original_url, expires_at) VALUES ($1, $2, $3)
+     ON CONFLICT (code) DO NOTHING`,
+    [code, originalUrl, expiresAt],
+  );
+  return rowCount === 1;
+}
+
+// With an alias, the alias is the code, and a clash is an error for the caller.
+// Without one, a random code is generated, and a clash (rare) just picks another code.
+export async function createUrl({ url, alias, expiresAt = null }, generate = randomCode) {
+  if (alias) {
+    if (!(await insertWithCode(alias, url, expiresAt))) throw new AliasTakenError();
+    return alias;
+  }
+  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+    const code = generate();
+    if (await insertWithCode(code, url, expiresAt)) return code;
+  }
+  throw new Error('Could not generate a unique code');
 }
 
 export async function findUrlByCode(code) {
-  const { rows } = await pool.query('SELECT original_url FROM urls WHERE code = $1', [code]);
-  return rows[0]?.original_url ?? null;
+  const { rows } = await pool.query('SELECT original_url, expires_at FROM urls WHERE code = $1', [
+    code,
+  ]);
+  if (!rows[0]) return null;
+  return { url: rows[0].original_url, expiresAt: rows[0].expires_at };
 }
 
 export async function incrementClicks(code) {
@@ -26,7 +43,7 @@ export async function incrementClicks(code) {
 
 export async function getStats(code) {
   const { rows } = await pool.query(
-    'SELECT code, original_url, click_count FROM urls WHERE code = $1',
+    'SELECT code, original_url, click_count, expires_at FROM urls WHERE code = $1',
     [code],
   );
   if (!rows[0]) return null;
@@ -34,6 +51,7 @@ export async function getStats(code) {
     code: rows[0].code,
     originalUrl: rows[0].original_url,
     clickCount: Number(rows[0].click_count),
+    expiresAt: rows[0].expires_at,
   };
 }
 
