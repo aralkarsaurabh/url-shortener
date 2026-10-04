@@ -31,6 +31,13 @@ export function LoadBalancerTaskPanel() {
     }
   }
 
+  // Tell the person what to do when the balancer or the servers are not there.
+  const problem = results.some((r) => r.status === 0)
+    ? "No answer from the balancer. Start everything: cd round-robin-load-balancer && npm run start:all"
+    : results.some((r) => r.headers["x-lb-error"] === "BAD_GATEWAY")
+      ? "The balancer is running but no server answered (502 BAD_GATEWAY). Start the three mock servers: npm run start:all"
+      : null;
+
   const servers = results.map(serverOf);
   const perServer = new Map<string, number>();
   for (const s of servers) if (s) perServer.set(s, (perServer.get(s) ?? 0) + 1);
@@ -52,6 +59,7 @@ export function LoadBalancerTaskPanel() {
       </div>
       <p className={ui.note}>Start everything with: cd round-robin-load-balancer && npm run start:all</p>
       {error && <p className={ui.error}>{error}</p>}
+      {problem && <p className={ui.error}>{problem}</p>}
       {results.length > 0 && (
         <>
           <p>

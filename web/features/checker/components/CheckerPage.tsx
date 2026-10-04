@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore, type ComponentType } from "r
 import { loadConfig } from "@/features/probe/api/probeClient";
 import type { ProbeConfig } from "@/features/probe/model/types";
 import { RateLimiterTaskPage } from "@/features/assignment/components/RateLimiterTaskPage";
-import { LoadBalancerTaskPanel } from "@/features/assignment/components/LoadBalancerTaskPanel";
+import { LoadBalancerTaskPage } from "@/features/assignment/components/LoadBalancerTaskPage";
 import { CachePanel } from "@/features/checks/components/CachePanel";
 import { ClicksPanel } from "@/features/checks/components/ClicksPanel";
 import { ExpiryPanel } from "@/features/checks/components/ExpiryPanel";
@@ -24,7 +24,7 @@ const TABS: { id: string; group: string; title: string; Component: ComponentType
   { id: "expiry", group: "Task 1: URL shortener", title: "Link expiry", Component: ExpiryPanel },
   { id: "instances", group: "Task 1: URL shortener", title: "Instances and health", Component: HealthPanel },
   { id: "task2", group: "Task 2: Rate limiter", title: "GET /data", Component: RateLimiterTaskPage },
-  { id: "task3", group: "Task 3: Load balancer", title: "Round robin", Component: LoadBalancerTaskPanel },
+  { id: "task3", group: "Task 3: Load balancer", title: "Round robin", Component: LoadBalancerTaskPage },
 ];
 
 // The selected tab lives in the address (#cache), so a tab can be linked to and survives a reload.

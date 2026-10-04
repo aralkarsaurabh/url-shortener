@@ -5,6 +5,8 @@ import type { NormalizedProbe } from "./validateProbe";
 const SHOWN_HEADERS = [
   "x-served-by",
   "x-backend",
+  "x-lb-error",
+  "via",
   "location",
   "retry-after",
   "ratelimit-limit",
