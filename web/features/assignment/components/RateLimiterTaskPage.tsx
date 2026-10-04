@@ -2,6 +2,7 @@
 
 import { AlgorithmComparisonPanel } from "./AlgorithmComparisonPanel";
 import { CapacityPanel } from "./CapacityPanel";
+import { CountersPanel } from "./CountersPanel";
 import { HeadersAndRoutesPanel } from "./HeadersAndRoutesPanel";
 import { TwoInstancesPanel } from "./TwoInstancesPanel";
 import { RateLimiterTaskPanel } from "./RateLimiterTaskPanel";
@@ -15,6 +16,7 @@ export function RateLimiterTaskPage() {
       <HeadersAndRoutesPanel />
       <CapacityPanel />
       <TwoInstancesPanel />
+      <CountersPanel />
     </div>
   );
 }
