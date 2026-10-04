@@ -1,7 +1,5 @@
 .main {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 64px 16px;
+  max-width: 720px;
 }
 
 .sub {
@@ -67,8 +65,10 @@
   overflow-wrap: anywhere;
 }
 
-.item button {
+.buttons {
   grid-column: 2;
   grid-row: 1 / span 2;
   align-self: center;
+  display: flex;
+  gap: 6px;
 }

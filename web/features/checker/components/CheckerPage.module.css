@@ -1,0 +1,87 @@
+.page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 32px 16px 64px;
+  display: grid;
+  gap: 20px;
+}
+
+.header h1 {
+  margin: 0 0 4px;
+}
+
+.services {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.instance {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.instance select {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.nav {
+  display: grid;
+  gap: 4px;
+  position: sticky;
+  top: 16px;
+}
+
+.group {
+  margin: 12px 0 2px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.group:first-child {
+  margin-top: 0;
+}
+
+.tab {
+  text-align: left;
+  border-color: transparent;
+}
+
+.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.content {
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nav {
+    position: static;
+    grid-auto-flow: row;
+  }
+}

@@ -5,6 +5,10 @@
   --border: #ddd;
   --accent: #2563eb;
   --danger: #c0262d;
+  --ok: #1f8a4c;
+  --warn: #b7791f;
+  --neutral: #6b7280;
+  --card: #f6f7f9;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -15,6 +19,10 @@
     --border: #333;
     --accent: #6ea0ff;
     --danger: #ff6b70;
+    --ok: #3fb97a;
+    --warn: #e0a44a;
+    --neutral: #7c8493;
+    --card: #17181b;
   }
 }
 
