@@ -1,0 +1,36 @@
+.rows {
+  display: grid;
+  gap: 14px;
+}
+
+.row {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tick {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+
+.yes {
+  background: var(--ok);
+}
+
+.no {
+  background: var(--danger);
+}

@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore, type ComponentType } from "react";
 import { loadConfig } from "@/features/probe/api/probeClient";
 import type { ProbeConfig } from "@/features/probe/model/types";
-import { RateLimiterTaskPanel } from "@/features/assignment/components/RateLimiterTaskPanel";
+import { RateLimiterTaskPage } from "@/features/assignment/components/RateLimiterTaskPage";
 import { LoadBalancerTaskPanel } from "@/features/assignment/components/LoadBalancerTaskPanel";
 import { CachePanel } from "@/features/checks/components/CachePanel";
 import { ClicksPanel } from "@/features/checks/components/ClicksPanel";
@@ -23,7 +23,7 @@ const TABS: { id: string; group: string; title: string; Component: ComponentType
   { id: "filter", group: "Task 1: URL shortener", title: "Code filter", Component: FilterPanel },
   { id: "expiry", group: "Task 1: URL shortener", title: "Link expiry", Component: ExpiryPanel },
   { id: "instances", group: "Task 1: URL shortener", title: "Instances and health", Component: HealthPanel },
-  { id: "task2", group: "Task 2: Rate limiter", title: "GET /data", Component: RateLimiterTaskPanel },
+  { id: "task2", group: "Task 2: Rate limiter", title: "GET /data", Component: RateLimiterTaskPage },
   { id: "task3", group: "Task 3: Load balancer", title: "Round robin", Component: LoadBalancerTaskPanel },
 ];
 
