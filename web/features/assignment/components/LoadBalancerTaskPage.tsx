@@ -2,6 +2,7 @@
 
 import { DistributionPanel } from "./DistributionPanel";
 import { ForwardingPanel } from "./ForwardingPanel";
+import { HealthDrainingPanel } from "./HealthDrainingPanel";
 import { HealthPanel } from "./HealthPanel";
 import { LoadBalancerTaskPanel } from "./LoadBalancerTaskPanel";
 
@@ -13,6 +14,7 @@ export function LoadBalancerTaskPage() {
       <ForwardingPanel />
       <HealthPanel />
       <DistributionPanel />
+      <HealthDrainingPanel />
     </div>
   );
 }
