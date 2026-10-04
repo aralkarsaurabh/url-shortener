@@ -63,7 +63,7 @@ export function CheckerPage() {
               Shortener instance to test
               <select value={instance} onChange={(e) => setInstance(Number(e.target.value))}>
                 {config.shortener.map((url, i) => (
-                  <option key={url} value={i}>
+                  <option key={`${url}-${i}`} value={i}>
                     {url}
                   </option>
                 ))}

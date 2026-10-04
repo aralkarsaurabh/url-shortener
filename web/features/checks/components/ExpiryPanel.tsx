@@ -28,7 +28,7 @@ export function ExpiryPanel() {
       const seen: ProbeResult[] = [];
       for (let second = 0; second <= seconds + 3; second++) {
         const { results: once } = await visit(code, { clientIp, instance });
-        seen.push(once[0]);
+        seen.push({ ...once[0], n: seen.length + 1 }); // each visit is its own request, so number them here
         setResults([...seen]);
         const cache = await inspectCode(code, instance);
         add({

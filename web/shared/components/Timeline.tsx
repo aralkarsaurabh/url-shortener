@@ -20,8 +20,8 @@ export function Timeline({ results }: { results: ProbeResult[] }) {
         ))}
       </div>
       <div className={ui.timeline} style={{ marginTop: 8 }}>
-        {results.map((r) => (
-          <span key={r.n} className={`${ui.tick} ${statusClass(r.status)}`} title={`#${r.n}: ${r.status} in ${r.ms} ms`} />
+        {results.map((r, index) => (
+          <span key={`${r.n}-${index}`} className={`${ui.tick} ${statusClass(r.status)}`} title={`#${r.n}: ${r.status} in ${r.ms} ms`} />
         ))}
       </div>
     </div>

@@ -55,8 +55,8 @@ export function HealthPanel() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.url}>
+              {rows.map((row, index) => (
+                <tr key={`${row.url}-${index}`}>
                   <td className={ui.mono}>{row.url}</td>
                   <td>
                     <StatusBadge status={row.result.status} />
