@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { noMetrics } from './metrics.js';
 
 const PENDING = 'clicks:pending'; // hash: code -> clicks waiting to be saved
 const INFLIGHT = 'clicks:inflight'; // hash: the batch currently being saved
@@ -27,7 +28,7 @@ end
 return 0
 `;
 
-export function createClickCounter({ redis, repository, intervalMs, maxClicks }) {
+export function createClickCounter({ redis, repository, intervalMs, maxClicks, metrics = noMetrics }) {
   redis.defineCommand('claimClickBatch', { numberOfKeys: 3, lua: CLAIM_BATCH });
   redis.defineCommand('finishClickBatch', { numberOfKeys: 2, lua: FINISH_BATCH });
 
@@ -42,9 +43,14 @@ export function createClickCounter({ redis, repository, intervalMs, maxClicks })
 
     const raw = await redis.hgetall(INFLIGHT);
     const counts = Object.entries(raw).map(([code, n]) => ({ code, count: Number(n) }));
-    await repository.applyClickBatch(batchId, counts);
+    const applied = await repository.applyClickBatch(batchId, counts);
     await redis.finishClickBatch(INFLIGHT, INFLIGHT_ID, batchId);
-    return counts.reduce((sum, c) => sum + c.count, 0);
+    const total = counts.reduce((sum, c) => sum + c.count, 0);
+    if (applied) {
+      metrics.inc('clicks.batches_saved');
+      metrics.inc('clicks.saved', total);
+    }
+    return total;
   }
 
   // Only one save runs at a time in this process. Resolves to the number of clicks saved.
@@ -58,6 +64,15 @@ export function createClickCounter({ redis, repository, intervalMs, maxClicks })
   }
 
   return {
+    // Clicks for this code that are still in Redis, waiting to be saved to the database.
+    async waitingFor(code) {
+      const [pending, inflight] = await Promise.all([
+        redis.hget(PENDING, code),
+        redis.hget(INFLIGHT, code),
+      ]);
+      return Number(pending ?? 0) + Number(inflight ?? 0);
+    },
+
     async record(code) {
       await redis.hincrby(PENDING, code, 1);
       if (++clicksSinceFlush >= maxClicks) flushInBackground();

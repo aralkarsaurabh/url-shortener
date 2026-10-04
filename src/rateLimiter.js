@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { sendError } from './httpErrors.js';
+import { noMetrics } from './metrics.js';
 
 // Sliding window log: every allowed request is stored with its time, and requests older than
 // the window are dropped before counting. Redis supplies the clock, so every app instance agrees.
@@ -23,7 +24,7 @@ return {1, limit - count - 1, math.floor(oldest[2] + windowMs - nowMs)}
 
 // Express middleware allowing `limit` requests per `windowMs` for each client.
 // `name` keeps separate limits apart (for example "create" and "lookup").
-export function createRateLimiter({ redis, name, limit, windowMs, keyFor = (req) => req.ip }) {
+export function createRateLimiter({ redis, name, limit, windowMs, keyFor = (req) => req.ip, metrics = noMetrics }) {
   if (!redis.slidingWindow) redis.defineCommand('slidingWindow', { numberOfKeys: 1, lua: SLIDING_WINDOW });
 
   return async function rateLimit(req, res, next) {
@@ -43,6 +44,7 @@ export function createRateLimiter({ redis, name, limit, windowMs, keyFor = (req)
       'RateLimit-Remaining': String(remaining),
       'RateLimit-Reset': String(resetSeconds),
     });
+    metrics.inc(`ratelimit.${name}.${allowed === 1 ? 'allowed' : 'blocked'}`);
     if (allowed === 1) return next();
 
     res.set('Retry-After', String(resetSeconds));

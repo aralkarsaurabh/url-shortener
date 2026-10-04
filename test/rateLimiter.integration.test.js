@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import Redis from 'ioredis';
 import { createRateLimiter } from '../src/rateLimiter.js';
+import { createMetrics } from '../src/metrics.js';
 
 const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6380', {
   lazyConnect: true,
@@ -125,4 +126,15 @@ test('if Redis fails, the request is let through', async (t) => {
 
   assert.equal((await get('alice')).status, 200);
   assert.equal((await get('alice')).status, 200);
+});
+
+test('the counters show allowed and blocked requests', async (t) => {
+  if (!available) return t.skip('redis not reachable');
+  const metrics = createMetrics();
+  const name = uniqueName();
+  const { server, get } = startApp({ limit: 2, windowMs: 60000, name, metrics });
+  t.after(() => server.close());
+
+  for (let i = 0; i < 5; i++) await get('alice');
+  assert.deepEqual(metrics.snapshot(), { [`ratelimit.${name}.allowed`]: 2, [`ratelimit.${name}.blocked`]: 3 });
 });

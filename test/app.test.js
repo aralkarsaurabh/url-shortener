@@ -236,3 +236,25 @@ test('every response says which instance answered', async (t) => {
   assert.equal((await fetch(`${base}/health`)).headers.get('x-served-by'), 'node-7');
   assert.equal((await fetch(`${base}/nope`)).headers.get('x-served-by'), 'node-7');
 });
+
+test('the debug routes exist only when debug is switched on', async (t) => {
+  const off = startApp();
+  t.after(() => off.server.close());
+  await expectError(await fetch(`${off.base}/debug/counters`), 404, 'NOT_FOUND');
+
+  const calls = [];
+  const debug = {
+    inspectCode: async (code) => ({ code }),
+    evictCode: async (code) => calls.push(`evict ${code}`),
+    counters: () => ({ counts: { 'db.reads': 1 } }),
+    resetCounters: () => calls.push('reset'),
+  };
+  const on = startApp({ debug });
+  t.after(() => on.server.close());
+
+  assert.deepEqual(await (await fetch(`${on.base}/debug/counters`)).json(), { counts: { 'db.reads': 1 } });
+  assert.deepEqual(await (await fetch(`${on.base}/debug/code/abc`)).json(), { code: 'abc' });
+  assert.equal((await fetch(`${on.base}/debug/code/abc/evict`, { method: 'POST' })).status, 200);
+  assert.equal((await fetch(`${on.base}/debug/counters/reset`, { method: 'POST' })).status, 200);
+  assert.deepEqual(calls, ['evict abc', 'reset']);
+});

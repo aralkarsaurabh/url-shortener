@@ -4,6 +4,8 @@ import { pool } from './db.js';
 import { redis } from './redis.js';
 import { createCache } from './cache.js';
 import { createClickCounter } from './clickCounter.js';
+import { createDebug } from './debug.js';
+import { createMetrics } from './metrics.js';
 import { createCodeFilter } from './codeFilter.js';
 import { createHealthCheck } from './health.js';
 import { createRateLimiter } from './rateLimiter.js';
@@ -15,6 +17,7 @@ const port = process.env.PORT || 3000;
 const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
 const instanceId = process.env.INSTANCE_ID || os.hostname();
 
+const metrics = createMetrics();
 const cache = createCache({
   redis,
   ttlSeconds: Number(process.env.CACHE_TTL_SECONDS ?? 3600),
@@ -26,6 +29,7 @@ const clicks = createClickCounter({
   repository,
   intervalMs: Number(process.env.FLUSH_INTERVAL_MS ?? 5000),
   maxClicks: Number(process.env.FLUSH_MAX_CLICKS ?? 1000),
+  metrics,
 });
 clicks.start();
 const filter = createCodeFilter({
@@ -36,7 +40,7 @@ const filter = createCodeFilter({
   checkIntervalMs: Number(process.env.BLOOM_CHECK_INTERVAL_MS ?? 30000),
 });
 filter.start();
-const service = createUrlService({ repository, cache, clicks, filter });
+const service = createUrlService({ repository, cache, clicks, filter, metrics });
 
 const windowMs = 60_000;
 const limiters = {
@@ -45,12 +49,14 @@ const limiters = {
     name: 'create',
     limit: Number(process.env.RATE_LIMIT_CREATE_PER_MINUTE ?? 10),
     windowMs,
+    metrics,
   }),
   lookup: createRateLimiter({
     redis,
     name: 'lookup',
     limit: Number(process.env.RATE_LIMIT_LOOKUP_PER_MINUTE ?? 300),
     windowMs,
+    metrics,
   }),
 };
 
@@ -82,6 +88,11 @@ const server = createApp({
   instanceId,
   checkHealth: createHealthCheck({ pool, redis }),
   isShuttingDown: shutdown.isShuttingDown,
+  // Shows what is inside Redis and the database. For local testing only.
+  debug:
+    process.env.ENABLE_DEBUG === 'true'
+      ? createDebug({ cache, clicks, filter, repository, metrics, instanceId })
+      : undefined,
 }).listen(port, () => {
   console.log(`url-shortener ${instanceId} listening on ${baseUrl} (port ${port})`);
 });

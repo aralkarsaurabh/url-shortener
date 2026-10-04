@@ -75,6 +75,17 @@ export function createCache({ redis, ttlSeconds, notFoundTtlSeconds, leaseTtlMs 
       return stored === 1;
     },
 
+    // For the debug tools: what is stored for this code, without taking a lease.
+    async inspect(code) {
+      const [value, ttlMs, lease] = await Promise.all([
+        redis.get(valueKey(code)),
+        redis.pttl(valueKey(code)),
+        redis.exists(leaseKey(code)),
+      ]);
+      const kind = value === null ? 'not_cached' : value === NOT_FOUND ? 'not_found' : value === GONE ? 'gone' : 'url';
+      return { kind, url: kind === 'url' ? value : null, ttlMs: value === null ? null : ttlMs, leaseHeld: lease === 1 };
+    },
+
     // Drops the value and the lease, so a caller still holding the old lease cannot save stale data.
     async remove(code) {
       await redis.del(valueKey(code), leaseKey(code));

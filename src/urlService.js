@@ -1,3 +1,5 @@
+import { noMetrics } from './metrics.js';
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function createUrlService({
@@ -5,6 +7,7 @@ export function createUrlService({
   cache,
   clicks,
   filter,
+  metrics = noMetrics,
   busyRetries = 10,
   busyDelayMs = 25,
   now = Date.now,
@@ -18,13 +21,19 @@ export function createUrlService({
     return { status: 'hit', url: row.url, ttlMs };
   }
 
+  const readDatabase = (code) => {
+    metrics.inc('db.reads');
+    return repository.findUrlByCode(code);
+  };
+
   // Cache-aside read with leases. Returns { status: 'hit', url } | { status: 'gone' } | { status: 'not_found' }.
   async function resolve(code) {
     try {
       for (let attempt = 0; attempt <= busyRetries; attempt++) {
         const cached = await cache.get(code);
+        metrics.inc(`cache.${cached.status}`);
         if (cached.status === 'miss') {
-          const entry = entryFromRow(await repository.findUrlByCode(code));
+          const entry = entryFromRow(await readDatabase(code));
           await cache.set(code, cached.lease, entry);
           return entry;
         }
@@ -34,7 +43,7 @@ export function createUrlService({
     } catch (err) {
       console.error('cache problem, reading from the database instead:', err.message);
     }
-    return entryFromRow(await repository.findUrlByCode(code));
+    return entryFromRow(await readDatabase(code));
   }
 
   // Clicks go to the counter (Redis) and are saved to the database in batches.
@@ -42,7 +51,9 @@ export function createUrlService({
   async function recordClick(code) {
     try {
       await clicks.record(code);
+      metrics.inc('clicks.queued');
     } catch (err) {
+      metrics.inc('clicks.written_directly');
       console.error('click counter problem, writing the click to the database:', err.message);
       await repository.incrementClicks(code);
     }
@@ -66,7 +77,11 @@ export function createUrlService({
     // Returns { status: 'found', url } | { status: 'gone' } | { status: 'not_found' }.
     async visit(code) {
       // Never created? Answer now, without touching the cache or the database.
-      if (!(await filter.mightContain(code))) return { status: 'not_found' };
+      if (!(await filter.mightContain(code))) {
+        metrics.inc('filter.rejected');
+        return { status: 'not_found' };
+      }
+      metrics.inc('filter.passed');
       const entry = await resolve(code);
       if (entry.status !== 'hit') return { status: entry.status };
       await recordClick(code);

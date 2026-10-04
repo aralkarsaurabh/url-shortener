@@ -17,6 +17,7 @@ export function createApp({
   instanceId,
   checkHealth = async () => ({}),
   isShuttingDown = () => false,
+  debug, // set only when ENABLE_DEBUG=true
 }) {
   const app = express();
   // Lets you see which instance answered, for example when several run behind a load balancer.
@@ -46,6 +47,29 @@ export function createApp({
       next(err);
     }
   });
+
+  if (debug) {
+    app.get('/debug/code/:code', async (req, res, next) => {
+      try {
+        res.json(await debug.inspectCode(req.params.code));
+      } catch (err) {
+        next(err);
+      }
+    });
+    app.post('/debug/code/:code/evict', async (req, res, next) => {
+      try {
+        await debug.evictCode(req.params.code);
+        res.json({ evicted: req.params.code });
+      } catch (err) {
+        next(err);
+      }
+    });
+    app.get('/debug/counters', (req, res) => res.json(debug.counters()));
+    app.post('/debug/counters/reset', (req, res) => {
+      debug.resetCounters();
+      res.json({ reset: true });
+    });
+  }
 
   app.post('/shorten', limitCreate, express.json({ limit: '10kb' }), async (req, res, next) => {
     try {

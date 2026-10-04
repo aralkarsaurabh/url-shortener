@@ -3,6 +3,7 @@ import test, { before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Redis from 'ioredis';
 import { createClickCounter } from '../src/clickCounter.js';
+import { createMetrics } from '../src/metrics.js';
 
 const redis = new Redis(process.env.REDIS_URL ?? 'redis://localhost:6380', {
   lazyConnect: true,
@@ -148,4 +149,20 @@ test('the timer saves clicks on its own', async (t) => {
   await counter.stop();
 
   assert.equal(repository.totals.get('a'), 1);
+});
+
+test('waitingFor shows clicks still in Redis, and the counters show what was saved', async (t) => {
+  if (!available) return t.skip('redis not reachable');
+  const repository = fakeRepository();
+  const metrics = createMetrics();
+  const counter = newCounter(repository, { metrics });
+
+  for (const code of ['a', 'a', 'b']) await counter.record(code);
+  assert.equal(await counter.waitingFor('a'), 2);
+  assert.equal(await counter.waitingFor('b'), 1);
+  assert.equal(await counter.waitingFor('c'), 0);
+
+  await counter.flush();
+  assert.equal(await counter.waitingFor('a'), 0);
+  assert.deepEqual(metrics.snapshot(), { 'clicks.batches_saved': 1, 'clicks.saved': 3 });
 });

@@ -147,3 +147,27 @@ test('gone is cached', async (t) => {
   assert.deepEqual(await cache.get(code), { status: 'gone' });
   await cache.remove(code);
 });
+
+test('inspect shows what is stored without taking a lease', async (t) => {
+  if (!available) return t.skip('redis not reachable');
+  const cache = newCache({ ttlSeconds: 60 });
+  const code = uniqueCode();
+
+  assert.deepEqual(await cache.inspect(code), { kind: 'not_cached', url: null, ttlMs: null, leaseHeld: false });
+
+  const { lease } = await cache.get(code); // takes the lease
+  assert.equal((await cache.inspect(code)).leaseHeld, true);
+
+  await cache.set(code, lease, { status: 'hit', url: 'https://inspect.test' });
+  const stored = await cache.inspect(code);
+  assert.equal(stored.kind, 'url');
+  assert.equal(stored.url, 'https://inspect.test');
+  assert.ok(stored.ttlMs > 59_000 && stored.ttlMs <= 60_000);
+  assert.equal(stored.leaseHeld, false);
+
+  await cache.remove(code);
+  const lease2 = (await cache.get(code)).lease;
+  await cache.set(code, lease2, { status: 'not_found' });
+  assert.equal((await cache.inspect(code)).kind, 'not_found');
+  await cache.remove(code);
+});

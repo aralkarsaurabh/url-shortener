@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createUrlService } from '../src/urlService.js';
+import { createMetrics } from '../src/metrics.js';
 
 const NOW = 1_000_000;
 const row = (extra = {}) => ({ url: 'https://example.com', expiresAt: null, ...extra });
@@ -54,16 +55,18 @@ function setup({ cacheResults, dbRow = row(), counterError = null, filterSays = 
       calls.filterAdds.push(code);
     },
   };
+  const metrics = createMetrics();
   const service = createUrlService({
     repository,
     cache,
     clicks,
     filter,
+    metrics,
     busyRetries: 3,
     busyDelayMs: 1,
     now: () => NOW,
   });
-  return { service, calls };
+  return { service, calls, metrics };
 }
 
 test('cache hit skips the database but still queues the click', async () => {
@@ -195,4 +198,34 @@ test('stats for a code the filter has never seen skip the database', async () =>
 test('stats for a possible code are read from the database', async () => {
   const { service } = setup({ cacheResults: [], filterSays: true });
   assert.deepEqual(await service.getStats('a'), { code: 'a', clickCount: 1 });
+});
+
+test('counters show cache hits, database reads and clicks', async () => {
+  const { service, metrics } = setup({
+    cacheResults: [{ status: 'miss', lease: 'L1' }, { status: 'hit', url: 'https://example.com' }],
+  });
+  await service.visit('a'); // miss: reads the database
+  await service.visit('a'); // hit: does not
+  assert.deepEqual(metrics.snapshot(), {
+    'filter.passed': 2,
+    'cache.miss': 1,
+    'cache.hit': 1,
+    'db.reads': 1,
+    'clicks.queued': 2,
+  });
+});
+
+test('counters show a request the filter turned away', async () => {
+  const { service, metrics } = setup({ cacheResults: [], filterSays: false });
+  await service.visit('neverMade');
+  assert.deepEqual(metrics.snapshot(), { 'filter.rejected': 1 });
+});
+
+test('counters show a click written straight to the database', async () => {
+  const { service, metrics } = setup({
+    cacheResults: [{ status: 'hit', url: 'https://example.com' }],
+    counterError: new Error('redis down'),
+  });
+  await service.visit('a');
+  assert.equal(metrics.snapshot()['clicks.written_directly'], 1);
 });

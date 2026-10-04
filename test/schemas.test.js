@@ -58,7 +58,7 @@ test('isPossibleCode accepts what we can make and rejects the rest', () => {
   for (const code of ['7i1AaCT', 'my-alias', 'abc', '1', 'B', 'a_b-c']) {
     assert.ok(isPossibleCode(code), `should accept ${code}`);
   }
-  for (const code of ['', 'a.b', 'has space', 'x'.repeat(33), 'stats', 'Shorten', 'API', 'health', 'ü']) {
+  for (const code of ['', 'a.b', 'has space', 'x'.repeat(33), 'stats', 'Shorten', 'API', 'health', 'debug', 'ü']) {
     assert.equal(isPossibleCode(code), false, `should reject ${code}`);
   }
 });
