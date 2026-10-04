@@ -1,5 +1,6 @@
 "use client";
 
+import { CountersPanel } from "./CountersPanel";
 import { DistributionPanel } from "./DistributionPanel";
 import { ForwardingPanel } from "./ForwardingPanel";
 import { HealthDrainingPanel } from "./HealthDrainingPanel";
@@ -15,6 +16,7 @@ export function LoadBalancerTaskPage() {
       <HealthPanel />
       <DistributionPanel />
       <HealthDrainingPanel />
+      <CountersPanel />
     </div>
   );
 }
