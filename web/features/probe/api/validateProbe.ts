@@ -19,7 +19,7 @@ export type NormalizedProbe = {
 export type Validation = { ok: true; value: NormalizedProbe } | { ok: false; error: string };
 
 export const LIMITS = { repeat: 400, concurrency: 50, delayMs: 2000, bodyBytes: 10_000 };
-const ALLOWED_HEADERS = new Set(["x-user-id", "x-forwarded-for", "content-type", "accept"]);
+const ALLOWED_HEADERS = new Set(["x-user-id", "x-forwarded-for", "x-request-id", "content-type", "accept"]);
 const SAFE_PATH = /^\/(?!\/)[A-Za-z0-9_\-.~%/?=&:,+@]*$/;
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
