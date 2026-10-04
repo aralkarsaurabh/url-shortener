@@ -5,13 +5,17 @@ import { createUrlService } from '../src/urlService.js';
 const NOW = 1_000_000;
 const row = (extra = {}) => ({ url: 'https://example.com', expiresAt: null, ...extra });
 
-function setup({ cacheResults, dbRow = row(), counterError = null }) {
-  const calls = { dbReads: 0, sets: [], removed: [], clicks: 0, counted: [], created: null };
+function setup({ cacheResults, dbRow = row(), counterError = null, filterSays = true }) {
+  const calls = { dbReads: 0, sets: [], removed: [], clicks: 0, counted: [], created: null, filterChecks: [], filterAdds: [], cacheGets: 0 };
   const queue = [...cacheResults];
   const repository = {
-    async createUrl(input) {
+    async createUrl(input, options) {
       calls.created = input;
+      await options.beforeInsert(input.alias ?? '7');
       return input.alias ?? '7';
+    },
+    async getStats() {
+      return { code: 'a', clickCount: 1 };
     },
     async findUrlByCode() {
       calls.dbReads++;
@@ -23,6 +27,7 @@ function setup({ cacheResults, dbRow = row(), counterError = null }) {
   };
   const cache = {
     async get() {
+      calls.cacheGets++;
       const next = queue.shift();
       if (next instanceof Error) throw next;
       return next;
@@ -40,10 +45,20 @@ function setup({ cacheResults, dbRow = row(), counterError = null }) {
       calls.counted.push(code);
     },
   };
+  const filter = {
+    async mightContain(code) {
+      calls.filterChecks.push(code);
+      return filterSays;
+    },
+    async add(code) {
+      calls.filterAdds.push(code);
+    },
+  };
   const service = createUrlService({
     repository,
     cache,
     clicks,
+    filter,
     busyRetries: 3,
     busyDelayMs: 1,
     now: () => NOW,
@@ -139,6 +154,7 @@ test('creating a url clears any cached entry for the new code', async () => {
   const result = await service.createUrl({ url: 'https://example.com' });
   assert.deepEqual(result, { code: '7', expiresAt: null });
   assert.deepEqual(calls.removed, ['7']);
+  assert.deepEqual(calls.filterAdds, ['7']); // told to the filter before the insert
 });
 
 test('creating a url turns expiresInSeconds into a date', async () => {
@@ -159,4 +175,24 @@ test('if the click counter fails, the click is written to the database instead',
   });
   assert.equal((await service.visit('a')).status, 'found');
   assert.equal(calls.clicks, 1);
+});
+
+test('a code the filter has never seen is answered without the cache or the database', async () => {
+  const { service, calls } = setup({ cacheResults: [], filterSays: false });
+  assert.deepEqual(await service.visit('neverMade'), { status: 'not_found' });
+  assert.deepEqual(calls.filterChecks, ['neverMade']);
+  assert.equal(calls.cacheGets, 0);
+  assert.equal(calls.dbReads, 0);
+  assert.deepEqual(calls.counted, []);
+});
+
+test('stats for a code the filter has never seen skip the database', async () => {
+  const { service, calls } = setup({ cacheResults: [], filterSays: false });
+  assert.equal(await service.getStats('neverMade'), null);
+  assert.equal(calls.dbReads, 0);
+});
+
+test('stats for a possible code are read from the database', async () => {
+  const { service } = setup({ cacheResults: [], filterSays: true });
+  assert.deepEqual(await service.getStats('a'), { code: 'a', clickCount: 1 });
 });

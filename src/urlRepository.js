@@ -6,7 +6,8 @@ const MAX_CODE_ATTEMPTS = 5;
 
 // The unique constraint on `code` decides who gets a code, so this is safe with many app
 // instances at once. ON CONFLICT DO NOTHING returns no row when the code is already taken.
-async function insertWithCode(code, originalUrl, expiresAt) {
+async function insertWithCode(code, originalUrl, expiresAt, beforeInsert) {
+  await beforeInsert?.(code);
   const { rowCount } = await pool.query(
     `INSERT INTO urls (code, original_url, expires_at) VALUES ($1, $2, $3)
      ON CONFLICT (code) DO NOTHING`,
@@ -17,14 +18,19 @@ async function insertWithCode(code, originalUrl, expiresAt) {
 
 // With an alias, the alias is the code, and a clash is an error for the caller.
 // Without one, a random code is generated, and a clash (rare) just picks another code.
-export async function createUrl({ url, alias, expiresAt = null }, generate = randomCode) {
+// beforeInsert(code) runs before every attempt, so the code filter learns about a code
+// before its row exists.
+export async function createUrl(
+  { url, alias, expiresAt = null },
+  { generate = randomCode, beforeInsert } = {},
+) {
   if (alias) {
-    if (!(await insertWithCode(alias, url, expiresAt))) throw new AliasTakenError();
+    if (!(await insertWithCode(alias, url, expiresAt, beforeInsert))) throw new AliasTakenError();
     return alias;
   }
   for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
     const code = generate();
-    if (await insertWithCode(code, url, expiresAt)) return code;
+    if (await insertWithCode(code, url, expiresAt, beforeInsert)) return code;
   }
   throw new Error('Could not generate a unique code');
 }
@@ -35,6 +41,15 @@ export async function findUrlByCode(code) {
   ]);
   if (!rows[0]) return null;
   return { url: rows[0].original_url, expiresAt: rows[0].expires_at };
+}
+
+// Used to build the code filter. Pages through every code in id order.
+export async function listCodesAfter(afterId, limit) {
+  const { rows } = await pool.query(
+    'SELECT id, code FROM urls WHERE id > $1 ORDER BY id LIMIT $2',
+    [afterId, limit],
+  );
+  return rows;
 }
 
 export async function incrementClicks(code) {

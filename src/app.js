@@ -1,19 +1,22 @@
 import express from 'express';
-import { shortenSchema, CODE_PATTERN } from './schemas.js';
+import { shortenSchema, isPossibleCode } from './schemas.js';
 import { AliasTakenError } from './errors.js';
+import { sendError } from './httpErrors.js';
 
-// Every error looks the same: { error: { code, message, details? } }
-function sendError(res, status, code, message, details) {
-  res.status(status).json({ error: { code, message, ...(details && { details }) } });
-}
+const passThrough = (req, res, next) => next();
 
 const notFound = (res) => sendError(res, 404, 'NOT_FOUND', 'Short URL not found');
 
-export function createApp({ service, baseUrl }) {
+// limiters.create and limiters.lookup are rate limit middleware. They run before anything else
+// (even before the body is read), so a flood costs as little as possible.
+export function createApp({ service, baseUrl, limiters = {}, trustProxy }) {
   const app = express();
-  app.use(express.json({ limit: '10kb' }));
+  // Behind a load balancer, req.ip is the balancer unless this says how many proxies to trust.
+  if (trustProxy !== undefined) app.set('trust proxy', trustProxy);
+  const limitCreate = limiters.create ?? passThrough;
+  const limitLookup = limiters.lookup ?? passThrough;
 
-  app.post('/shorten', async (req, res, next) => {
+  app.post('/shorten', limitCreate, express.json({ limit: '10kb' }), async (req, res, next) => {
     try {
       const parsed = shortenSchema.safeParse(req.body ?? {});
       if (!parsed.success) {
@@ -33,10 +36,10 @@ export function createApp({ service, baseUrl }) {
     }
   });
 
-  app.get('/:code', async (req, res, next) => {
+  app.get('/:code', limitLookup, async (req, res, next) => {
     try {
       const { code } = req.params;
-      if (!CODE_PATTERN.test(code)) return notFound(res);
+      if (!isPossibleCode(code)) return notFound(res);
       const result = await service.visit(code);
       if (result.status === 'found') return res.redirect(302, result.url);
       if (result.status === 'gone') {
@@ -49,10 +52,10 @@ export function createApp({ service, baseUrl }) {
   });
 
   // Reads straight from the database so the numbers are always current.
-  app.get('/stats/:code', async (req, res, next) => {
+  app.get('/stats/:code', limitLookup, async (req, res, next) => {
     try {
       const { code } = req.params;
-      const stats = CODE_PATTERN.test(code) ? await service.getStats(code) : null;
+      const stats = isPossibleCode(code) ? await service.getStats(code) : null;
       if (!stats) return notFound(res);
       res.json(stats);
     } catch (err) {

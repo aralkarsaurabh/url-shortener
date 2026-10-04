@@ -83,7 +83,7 @@ test('a generated code that is already taken is skipped', async (t) => {
   const fresh = uniqueAlias();
   const sequence = [taken, taken, fresh];
 
-  const code = await repository.createUrl({ url: 'https://example.com/new' }, () => sequence.shift());
+  const code = await repository.createUrl({ url: 'https://example.com/new' }, { generate: () => sequence.shift() });
   assert.equal(code, fresh);
   assert.equal((await repository.findUrlByCode(taken)).url, 'https://example.com/taken');
 });
@@ -92,7 +92,7 @@ test('gives up if every generated code is taken', async (t) => {
   if (!available) return t.skip('postgres not reachable');
   const taken = uniqueAlias();
   await repository.createUrl({ url: 'https://example.com/taken', alias: taken });
-  await assert.rejects(repository.createUrl({ url: 'https://example.com/x' }, () => taken), /unique code/);
+  await assert.rejects(repository.createUrl({ url: 'https://example.com/x' }, { generate: () => taken }), /unique code/);
 });
 
 test('expiry is saved and returned with the stats', async (t) => {
@@ -101,4 +101,59 @@ test('expiry is saved and returned with the stats', async (t) => {
   const code = await repository.createUrl({ url: 'https://example.com/expiring', expiresAt });
   assert.equal((await repository.findUrlByCode(code)).expiresAt.getTime(), expiresAt.getTime());
   assert.equal((await repository.getStats(code)).expiresAt.getTime(), expiresAt.getTime());
+});
+
+test('beforeInsert runs for every attempt, before the row exists', async (t) => {
+  if (!available) return t.skip('postgres not reachable');
+  const taken = uniqueAlias();
+  await repository.createUrl({ url: 'https://example.com/taken', alias: taken });
+  const fresh = uniqueAlias();
+  const sequence = [taken, fresh];
+  const seen = [];
+
+  const code = await repository.createUrl(
+    { url: 'https://example.com/hook' },
+    {
+      generate: () => sequence.shift(),
+      beforeInsert: async (candidate) => {
+        seen.push({ candidate, existedAlready: (await repository.findUrlByCode(candidate)) !== null });
+      },
+    },
+  );
+
+  assert.equal(code, fresh);
+  assert.deepEqual(seen, [
+    { candidate: taken, existedAlready: true },
+    { candidate: fresh, existedAlready: false },
+  ]);
+});
+
+test('beforeInsert also runs for an alias', async (t) => {
+  if (!available) return t.skip('postgres not reachable');
+  const alias = uniqueAlias();
+  const seen = [];
+  await repository.createUrl({ url: 'https://example.com/a', alias }, { beforeInsert: async (c) => seen.push(c) });
+  assert.deepEqual(seen, [alias]);
+});
+
+test('codes can be listed in id order, a page at a time', async (t) => {
+  if (!available) return t.skip('postgres not reachable');
+  const first = await repository.createUrl({ url: 'https://example.com/list-1' });
+  const second = await repository.createUrl({ url: 'https://example.com/list-2' });
+
+  const all = [];
+  let afterId = '0';
+  for (;;) {
+    const page = await repository.listCodesAfter(afterId, 3);
+    if (page.length === 0) break;
+    all.push(...page);
+    afterId = page[page.length - 1].id;
+  }
+
+  const codes = all.map((row) => row.code);
+  assert.ok(codes.indexOf(first) !== -1 && codes.indexOf(first) < codes.indexOf(second));
+  assert.deepEqual(
+    all.map((row) => Number(row.id)),
+    all.map((row) => Number(row.id)).sort((a, b) => a - b),
+  );
 });

@@ -9,6 +9,14 @@ export const CODE_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
 const ALIAS_PATTERN = /^[A-Za-z0-9_-]{3,32}$/;
 const RESERVED_ALIASES = new Set(['shorten', 'stats', 'health', 'api']);
 
+// A free check, with no Redis or database: could our system ever have made this code?
+// Generated codes are 7 Base62 characters and aliases are 3 to 32 characters of letters, numbers,
+// - and _ (not reserved words). Codes from phases 1 to 3 were Base62 and as short as 1 character,
+// so the pattern cannot be tighter than this without breaking those links.
+export function isPossibleCode(code) {
+  return CODE_PATTERN.test(code) && !RESERVED_ALIASES.has(code.toLowerCase());
+}
+
 function isAllowedUrl(value) {
   try {
     const url = new URL(value);

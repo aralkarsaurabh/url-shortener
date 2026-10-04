@@ -97,6 +97,7 @@ test('50 requests at once for an uncached code read the database once', async (t
     repository,
     cache: newCache(),
     clicks: { async record() {} },
+    filter: { async mightContain() { return true; }, async add() {} },
     busyRetries: 40,
     busyDelayMs: 10,
   });

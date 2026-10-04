@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { shortenSchema, CODE_PATTERN, MAX_URL_LENGTH, MAX_EXPIRY_SECONDS } from '../src/schemas.js';
+import { shortenSchema, CODE_PATTERN, isPossibleCode, MAX_URL_LENGTH, MAX_EXPIRY_SECONDS } from '../src/schemas.js';
 
 const ok = (input) => shortenSchema.safeParse(input).success;
 
@@ -52,4 +52,13 @@ test('code pattern matches what aliases and generated codes can be', () => {
   assert.equal(CODE_PATTERN.test('A'.repeat(33)), false);
   assert.equal(CODE_PATTERN.test(''), false);
   assert.equal(CODE_PATTERN.test('a.b'), false);
+});
+
+test('isPossibleCode accepts what we can make and rejects the rest', () => {
+  for (const code of ['7i1AaCT', 'my-alias', 'abc', '1', 'B', 'a_b-c']) {
+    assert.ok(isPossibleCode(code), `should accept ${code}`);
+  }
+  for (const code of ['', 'a.b', 'has space', 'x'.repeat(33), 'stats', 'Shorten', 'API', 'health', 'ü']) {
+    assert.equal(isPossibleCode(code), false, `should reject ${code}`);
+  }
 });

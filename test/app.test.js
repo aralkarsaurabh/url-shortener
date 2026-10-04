@@ -4,7 +4,7 @@ import { createApp } from '../src/app.js';
 import { AliasTakenError } from '../src/errors.js';
 
 // A small in-memory service that behaves like the real one as far as the routes can tell.
-function startApp() {
+function startApp(options = {}) {
   const links = new Map(); // code -> { url, expiresAt, clicks }
   const service = {
     async createUrl({ url, alias, expiresInSeconds }) {
@@ -27,7 +27,7 @@ function startApp() {
       return { code, originalUrl: link.url, clickCount: link.clicks, expiresAt: link.expiresAt };
     },
   };
-  const server = createApp({ service, baseUrl: 'http://short.test' }).listen(0);
+  const server = createApp({ service, baseUrl: 'http://short.test', ...options }).listen(0);
   return { server, links, base: `http://localhost:${server.address().port}` };
 }
 
@@ -149,4 +149,42 @@ test('stats show the click count and expiry', async (t) => {
   assert.equal(stats.originalUrl, 'https://example.com');
   assert.equal(stats.expiresAt, null);
   await expectError(await fetch(`${base}/stats/nope`), 404, 'NOT_FOUND');
+});
+
+test('a blocked client gets 429 before the request is even read', async (t) => {
+  const seen = { create: 0, lookup: 0 };
+  const blocking = (name) => (req, res) => {
+    seen[name]++;
+    res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too Many Requests: Try again later.' } });
+  };
+  const { server, links, base } = startApp({
+    limiters: { create: blocking('create'), lookup: blocking('lookup') },
+  });
+  t.after(() => server.close());
+
+  // Even a body that is not valid JSON gets the 429, because the limiter runs first.
+  await expectError(await post(base, '{"url": '), 429, 'RATE_LIMITED');
+  await expectError(await fetch(`${base}/abc`, { redirect: 'manual' }), 429, 'RATE_LIMITED');
+  await expectError(await fetch(`${base}/stats/abc`), 429, 'RATE_LIMITED');
+  assert.deepEqual(seen, { create: 1, lookup: 2 });
+  assert.equal(links.size, 0);
+});
+
+test('reserved words are never treated as codes', async (t) => {
+  const { server, base } = startApp();
+  t.after(() => server.close());
+  await expectError(await fetch(`${base}/health`, { redirect: 'manual' }), 404, 'NOT_FOUND');
+});
+
+test('trustProxy lets the client address come from the forwarded header', async (t) => {
+  let seenIp = null;
+  const spy = (req, res, next) => {
+    seenIp = req.ip;
+    next();
+  };
+  const { server, base } = startApp({ limiters: { lookup: spy }, trustProxy: 1 });
+  t.after(() => server.close());
+
+  await fetch(`${base}/abc`, { headers: { 'x-forwarded-for': '203.0.113.9' } });
+  assert.equal(seenIp, '203.0.113.9');
 });

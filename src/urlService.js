@@ -4,6 +4,7 @@ export function createUrlService({
   repository,
   cache,
   clicks,
+  filter,
   busyRetries = 10,
   busyDelayMs = 25,
   now = Date.now,
@@ -51,7 +52,11 @@ export function createUrlService({
     // Throws AliasTakenError if the alias is already used.
     async createUrl({ url, alias, expiresInSeconds }) {
       const expiresAt = expiresInSeconds ? new Date(now() + expiresInSeconds * 1000) : null;
-      const code = await repository.createUrl({ url, alias, expiresAt });
+      // The filter must learn about the code before the row exists, so it never misses a real code.
+      const code = await repository.createUrl(
+        { url, alias, expiresAt },
+        { beforeInsert: (candidate) => filter.add(candidate) },
+      );
       // A "not found" answer may already be cached for this new code, so clear it.
       await cache.remove(code).catch((err) => console.error('cache remove failed:', err.message));
       return { code, expiresAt };
@@ -60,12 +65,17 @@ export function createUrlService({
     // Finds where the code points and counts the click.
     // Returns { status: 'found', url } | { status: 'gone' } | { status: 'not_found' }.
     async visit(code) {
+      // Never created? Answer now, without touching the cache or the database.
+      if (!(await filter.mightContain(code))) return { status: 'not_found' };
       const entry = await resolve(code);
       if (entry.status !== 'hit') return { status: entry.status };
       await recordClick(code);
       return { status: 'found', url: entry.url };
     },
 
-    getStats: (code) => repository.getStats(code),
+    async getStats(code) {
+      if (!(await filter.mightContain(code))) return null;
+      return repository.getStats(code);
+    },
   };
 }
