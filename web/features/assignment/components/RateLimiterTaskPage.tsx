@@ -1,6 +1,7 @@
 "use client";
 
 import { AlgorithmComparisonPanel } from "./AlgorithmComparisonPanel";
+import { HeadersAndRoutesPanel } from "./HeadersAndRoutesPanel";
 import { RateLimiterTaskPanel } from "./RateLimiterTaskPanel";
 
 // The Task 2 tab: one section for each slice of the rate limiter, in order.
@@ -9,6 +10,7 @@ export function RateLimiterTaskPage() {
     <div style={{ display: "grid", gap: 40 }}>
       <RateLimiterTaskPanel />
       <AlgorithmComparisonPanel />
+      <HeadersAndRoutesPanel />
     </div>
   );
 }
