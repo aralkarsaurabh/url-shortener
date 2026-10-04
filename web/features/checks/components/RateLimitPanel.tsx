@@ -10,6 +10,7 @@ import ui from "@/shared/components/ui.module.css";
 import { randomClientIp } from "@/shared/lib/clientIp";
 import { useChecker } from "@/features/checker/hooks/useChecker";
 import { createLink } from "../api/shortenerChecks";
+import { sampleRows } from "../lib/sampleRows";
 
 type Mode = "create" | "lookup";
 
@@ -67,7 +68,6 @@ export function RateLimitPanel() {
   const limit = Number(results[0]?.headers["ratelimit-limit"]);
   const allowed = results.filter((r) => r.status !== 429).length;
   const blocked = results.filter((r) => r.status === 429);
-  const firstBlocked = blocked[0];
 
   return (
     <Panel
@@ -105,7 +105,7 @@ export function RateLimitPanel() {
             {allowed} allowed, {blocked.length} blocked
             {Number.isFinite(limit) && ` (the limit is ${limit}: ${allowed === limit ? "matches" : "does not match"})`}.
           </p>
-          <ResultTable results={firstBlocked ? [results[0], firstBlocked, results[results.length - 1]] : results.slice(0, 5)} />
+          <ResultTable results={sampleRows(results)} />
           <p className={ui.note}>Table: the first request, the first blocked one, and the last.</p>
         </>
       )}

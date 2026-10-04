@@ -26,8 +26,8 @@ export function ResultTable({ results }: { results: ProbeResult[] }) {
           </tr>
         </thead>
         <tbody>
-          {results.map((r) => (
-            <tr key={r.n}>
+          {results.map((r, index) => (
+            <tr key={`${r.n}-${index}`}>
               <td>{r.n}</td>
               <td>
                 <StatusBadge status={r.status} />
