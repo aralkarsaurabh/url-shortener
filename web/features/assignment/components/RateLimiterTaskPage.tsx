@@ -3,6 +3,7 @@
 import { AlgorithmComparisonPanel } from "./AlgorithmComparisonPanel";
 import { CapacityPanel } from "./CapacityPanel";
 import { HeadersAndRoutesPanel } from "./HeadersAndRoutesPanel";
+import { TwoInstancesPanel } from "./TwoInstancesPanel";
 import { RateLimiterTaskPanel } from "./RateLimiterTaskPanel";
 
 // The Task 2 tab: one section for each slice of the rate limiter, in order.
@@ -13,6 +14,7 @@ export function RateLimiterTaskPage() {
       <AlgorithmComparisonPanel />
       <HeadersAndRoutesPanel />
       <CapacityPanel />
+      <TwoInstancesPanel />
     </div>
   );
 }
