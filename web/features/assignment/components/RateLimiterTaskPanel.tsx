@@ -20,6 +20,15 @@ export function RateLimiterTaskPanel() {
   const [results, setResults] = useState<ProbeResult[]>([]);
   const [manualError, setManualError] = useState<string | null>(null);
 
+  // Tell the person what to do when the answer is not a normal 200 or 429.
+  const noAnswer = results.some((r) => r.status === 0);
+  const invalid = results.find((r) => r.status === 400);
+  const problem = noAnswer
+    ? "No answer. Start the rate limiter: cd rate-limiter && npm start"
+    : invalid
+      ? (parseBody<{ error: { message: string } }>(invalid)?.error.message ?? "The user id is not valid.")
+      : null;
+
   const assignmentCheck = () =>
     start(async ({ add }) => {
       const suffix = Math.random().toString(36).slice(2, 7);
@@ -86,6 +95,7 @@ export function RateLimiterTaskPanel() {
         <button type="button" disabled={!user} onClick={() => send(7)}>Send 7 quickly</button>
       </div>
       {manualError && <p className={ui.error}>{manualError}</p>}
+      {problem && <p className={ui.error}>{problem}</p>}
       {results.length > 0 && (
         <>
           <Timeline results={results} />
