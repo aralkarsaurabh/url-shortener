@@ -1,6 +1,7 @@
 "use client";
 
 import { AlgorithmComparisonPanel } from "./AlgorithmComparisonPanel";
+import { CapacityPanel } from "./CapacityPanel";
 import { HeadersAndRoutesPanel } from "./HeadersAndRoutesPanel";
 import { RateLimiterTaskPanel } from "./RateLimiterTaskPanel";
 
@@ -11,6 +12,7 @@ export function RateLimiterTaskPage() {
       <RateLimiterTaskPanel />
       <AlgorithmComparisonPanel />
       <HeadersAndRoutesPanel />
+      <CapacityPanel />
     </div>
   );
 }
