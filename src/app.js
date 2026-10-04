@@ -9,12 +9,43 @@ const notFound = (res) => sendError(res, 404, 'NOT_FOUND', 'Short URL not found'
 
 // limiters.create and limiters.lookup are rate limit middleware. They run before anything else
 // (even before the body is read), so a flood costs as little as possible.
-export function createApp({ service, baseUrl, limiters = {}, trustProxy }) {
+export function createApp({
+  service,
+  baseUrl,
+  limiters = {},
+  trustProxy,
+  instanceId,
+  checkHealth = async () => ({}),
+  isShuttingDown = () => false,
+}) {
   const app = express();
+  // Lets you see which instance answered, for example when several run behind a load balancer.
+  if (instanceId) {
+    app.use((req, res, next) => {
+      res.set('X-Served-By', instanceId);
+      next();
+    });
+  }
   // Behind a load balancer, req.ip is the balancer unless this says how many proxies to trust.
   if (trustProxy !== undefined) app.set('trust proxy', trustProxy);
   const limitCreate = limiters.create ?? passThrough;
   const limitLookup = limiters.lookup ?? passThrough;
+
+  // For load balancers and Docker. Not rate limited. Only Postgres is required: without Redis
+  // the service still works (slower), so that is reported as "degraded" and stays in rotation.
+  app.get('/health', async (req, res, next) => {
+    try {
+      if (isShuttingDown()) {
+        return res.status(503).json({ status: 'shutting_down', instance: instanceId });
+      }
+      const checks = await checkHealth();
+      const status =
+        checks.postgres !== 'ok' ? 'unavailable' : checks.redis !== 'ok' ? 'degraded' : 'ok';
+      res.status(status === 'unavailable' ? 503 : 200).json({ status, instance: instanceId, checks });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   app.post('/shorten', limitCreate, express.json({ limit: '10kb' }), async (req, res, next) => {
     try {

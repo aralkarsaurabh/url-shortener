@@ -14,5 +14,8 @@
     "ioredis": "^6.0.0",
     "pg": "^8.13.0",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "autocannon": "^8.0.0"
   }
 }

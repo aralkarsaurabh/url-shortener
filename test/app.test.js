@@ -173,7 +173,9 @@ test('a blocked client gets 429 before the request is even read', async (t) => {
 test('reserved words are never treated as codes', async (t) => {
   const { server, base } = startApp();
   t.after(() => server.close());
-  await expectError(await fetch(`${base}/health`, { redirect: 'manual' }), 404, 'NOT_FOUND');
+  for (const word of ['shorten', 'stats', 'api']) {
+    await expectError(await fetch(`${base}/${word}`, { redirect: 'manual' }), 404, 'NOT_FOUND');
+  }
 });
 
 test('trustProxy lets the client address come from the forwarded header', async (t) => {
@@ -187,4 +189,50 @@ test('trustProxy lets the client address come from the forwarded header', async 
 
   await fetch(`${base}/abc`, { headers: { 'x-forwarded-for': '203.0.113.9' } });
   assert.equal(seenIp, '203.0.113.9');
+});
+
+test('/health reports ok, degraded and unavailable with the matching status', async (t) => {
+  let checks = { postgres: 'ok', redis: 'ok' };
+  const { server, base } = startApp({ instanceId: 'node-1', checkHealth: async () => checks });
+  t.after(() => server.close());
+
+  let res = await fetch(`${base}/health`);
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { status: 'ok', instance: 'node-1', checks });
+
+  checks = { postgres: 'ok', redis: 'down' }; // still serves, so it stays in rotation
+  res = await fetch(`${base}/health`);
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).status, 'degraded');
+
+  checks = { postgres: 'down', redis: 'ok' };
+  res = await fetch(`${base}/health`);
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).status, 'unavailable');
+});
+
+test('/health says shutting_down with 503 while stopping, and is not rate limited', async (t) => {
+  let limiterCalls = 0;
+  const limiter = (req, res, next) => {
+    limiterCalls++;
+    next();
+  };
+  const { server, base } = startApp({
+    limiters: { create: limiter, lookup: limiter },
+    isShuttingDown: () => true,
+  });
+  t.after(() => server.close());
+
+  const res = await fetch(`${base}/health`);
+  assert.equal(res.status, 503);
+  assert.equal((await res.json()).status, 'shutting_down');
+  assert.equal(limiterCalls, 0);
+});
+
+test('every response says which instance answered', async (t) => {
+  const { server, base } = startApp({ instanceId: 'node-7' });
+  t.after(() => server.close());
+
+  assert.equal((await fetch(`${base}/health`)).headers.get('x-served-by'), 'node-7');
+  assert.equal((await fetch(`${base}/nope`)).headers.get('x-served-by'), 'node-7');
 });

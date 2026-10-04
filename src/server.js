@@ -1,14 +1,19 @@
+import os from 'node:os';
 import { createApp } from './app.js';
+import { pool } from './db.js';
 import { redis } from './redis.js';
 import { createCache } from './cache.js';
 import { createClickCounter } from './clickCounter.js';
 import { createCodeFilter } from './codeFilter.js';
+import { createHealthCheck } from './health.js';
 import { createRateLimiter } from './rateLimiter.js';
+import { closeServer, createShutdown } from './shutdown.js';
 import { createUrlService } from './urlService.js';
 import * as repository from './urlRepository.js';
 
 const port = process.env.PORT || 3000;
 const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
+const instanceId = process.env.INSTANCE_ID || os.hostname();
 
 const cache = createCache({
   redis,
@@ -56,6 +61,29 @@ function parseTrustProxy(value) {
   return /^\d+$/.test(value) ? Number(value) : value;
 }
 
-createApp({ service, baseUrl, limiters, trustProxy: parseTrustProxy(process.env.TRUST_PROXY) }).listen(port, () => {
-  console.log(`url-shortener listening on ${baseUrl}`);
+// On a stop signal (for example docker stop): report unhealthy, finish the requests in progress,
+// save the clicks still waiting in Redis, then close the connections and exit.
+const shutdown = createShutdown({
+  timeoutMs: Number(process.env.SHUTDOWN_TIMEOUT_MS ?? 10000),
+  steps: [
+    ['stop accepting requests', () => closeServer(server)],
+    ['stop background jobs', () => Promise.all([filter.stop(), clicks.stop()])],
+    ['save waiting clicks', () => clicks.flush()],
+    ['close postgres', () => pool.end()],
+    ['close redis', () => redis.quit()],
+  ],
 });
+
+const server = createApp({
+  service,
+  baseUrl,
+  limiters,
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  instanceId,
+  checkHealth: createHealthCheck({ pool, redis }),
+  isShuttingDown: shutdown.isShuttingDown,
+}).listen(port, () => {
+  console.log(`url-shortener ${instanceId} listening on ${baseUrl} (port ${port})`);
+});
+
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => shutdown.run(signal));
