@@ -1,21 +1,20 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { shortenUrl } from "../api/shortenApi";
-import type { ShortenInput, ShortenedUrl } from "../model/types";
+import type { ShortenedUrl } from "../model/types";
 
 export function useShortener() {
   const [items, setItems] = useState<ShortenedUrl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const nextId = useRef(1);
 
-  async function submit(input: ShortenInput): Promise<boolean> {
+  async function submit(url: string): Promise<boolean> {
     setLoading(true);
     setError(null);
     try {
-      const created = await shortenUrl(input);
-      setItems((prev) => [{ ...created, id: nextId.current++ }, ...prev]);
+      const created = await shortenUrl(url.trim());
+      setItems((prev) => [created, ...prev]);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

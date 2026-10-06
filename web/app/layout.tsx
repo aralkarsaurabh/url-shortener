@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "System Design Checker",
-  description: "Checks the URL shortener, the rate limiter and the load balancer",
+  title: "URL Shortener Workflow",
+  description: "Test frontend for the URL shortener service",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,5 +1,5 @@
-import { CheckerPage } from "@/features/checker/components/CheckerPage";
+import { WorkflowPage } from "@/features/workflow/components/WorkflowPage";
 
 export default function Home() {
-  return <CheckerPage />;
+  return <WorkflowPage />;
 }
