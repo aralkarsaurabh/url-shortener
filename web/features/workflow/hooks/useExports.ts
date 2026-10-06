@@ -24,11 +24,19 @@ export function useExports({ tabKey, workflowName, flow, done }: Options) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const total = flow.atoms.length;
-  const doneCount = flow.atoms.filter((a) => a.status === "success").length;
+
+  // Counts the steps as they appear in the picture, not the parts hidden inside a group.
+  function subtitleFor(exploded: boolean): string {
+    if (!done) return "The workflow, step by step";
+    const nodes = buildLayout(flow, exploded).nodes;
+    const ran = nodes.filter((n) => n.status === "success").length;
+    const skipped = nodes.filter((n) => n.status === "skipped").length;
+    return `A real run: ${ran} steps${skipped ? `, ${skipped} skipped` : ""}${exploded ? ", exploded view" : ""}`;
+  }
 
   const flowOptions = (exploded: boolean) => ({
     title: `URL shortener: ${workflowName}`,
-    subtitle: done ? `A real run: ${doneCount} of ${total} steps${exploded ? ", exploded view" : ""}` : "The workflow, step by step",
+    subtitle: subtitleFor(exploded),
     footer: FOOTER,
   });
 
