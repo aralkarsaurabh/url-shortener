@@ -81,4 +81,4 @@ Every error has the same shape:
 - Aliases are first come, first served, with no owners and no way to delete or edit a link.
 - No rate limiting yet, so anyone can create unlimited links or grab aliases (phase 5 adds the rate limiter).
 - Expired rows stay in the database.
-- Short URLs shown by the API use `BASE_URL` from `.env`, so they point at port 3000 even if the service runs on another port.
+- Short URLs shown by the API use `BASE_URL` from `.env`, so they point at port 3302 even if the service runs on another port.

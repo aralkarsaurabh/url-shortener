@@ -13,7 +13,7 @@ import { closeServer, createShutdown } from './shutdown.js';
 import { createUrlService } from './urlService.js';
 import * as repository from './urlRepository.js';
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3302;
 const baseUrl = process.env.BASE_URL || `http://localhost:${port}`;
 const instanceId = process.env.INSTANCE_ID || os.hostname();
 
